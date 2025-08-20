@@ -1,10 +1,9 @@
 import dotenv from "dotenv";
-import { Configuration, OpenAIApi } from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 dotenv.config();
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
-const client = new OpenAIApi(configuration);
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const client = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 /**
  * Accepts Buffer image and returns inferred labels/ingredients (string[]).
@@ -16,19 +15,24 @@ export async function inferIngredientsFromImage(imageBuffer: Buffer): Promise<st
   // In a production integration, use a proper Vision / Image Classification API.
 
   const base64 = imageBuffer.toString("base64");
-  const prompt = `Given this image encoded in base64 (image omitted to keep payload small), list probable ingredients visible in the dish. Return a JSON array of ingredient names. Answer format: ["rice","tomato", ...]`;
+  const prompt = `List probable ingredients visible in the provided image. Return a JSON array of ingredient names. Answer format: ["rice","tomato", ...]`;
 
-  const resp = await client.createChatCompletion({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: "You are an assistant that guesses dish ingredients from images." },
-      { role: "user", content: prompt }
-    ],
-    max_tokens: 200,
-    temperature: 0.2
-  });
+  if (!client) {
+    return ["Rice", "Tomato", "Onion", "Oil"]; // simple mock when no API key
+  }
 
-  const content = resp.data.choices?.[0]?.message?.content ?? "[]";
+  const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const resp = await model.generateContent([
+    prompt,
+    {
+      inlineData: {
+        data: base64,
+        mimeType: "image/png"
+      }
+    } as any
+  ]);
+
+  const content = resp.response?.text() ?? "[]";
 
   try {
     const parsed = JSON.parse(content);
@@ -37,4 +41,5 @@ export async function inferIngredientsFromImage(imageBuffer: Buffer): Promise<st
     const items = content.split(/[\n,]+/).map(s => s.replace(/["\[\]]/g, "").trim()).filter(Boolean);
     return items.slice(0, 10);
   }
+  return [];
 }

@@ -1,10 +1,9 @@
-import { Configuration, OpenAIApi } from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 dotenv.config();
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
-const client = new OpenAIApi(configuration);
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const client = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 /**
  * Ask an LLM to infer typical ingredients and approximate quantity proportions.
@@ -13,17 +12,14 @@ const client = new OpenAIApi(configuration);
 export async function inferIngredientsFromDish(dish: string): Promise<string[]> {
   const prompt = `List the main ingredients for the dish "${dish}". Return JSON array of ingredient names (short list, 5-8 items max). Example: ["Rice","Chicken","Onion","Yogurt"]`;
 
-  const resp = await client.createChatCompletion({
-    model: "gpt-4o-mini", // choose appropriate model
-    messages: [
-      { role: "system", content: "You are a helpful assistant that lists ingredients." },
-      { role: "user", content: prompt }
-    ],
-    max_tokens: 200,
-    temperature: 0.2
-  });
+  // No API key? Provide a deterministic, sensible mock so the API still works locally.
+  if (!client) {
+    return mockIngredientsForDish(dish);
+  }
 
-  const content = resp.data.choices?.[0]?.message?.content ?? "[]";
+  const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const resp = await model.generateContent(prompt);
+  const content = resp.response?.text() ?? "[]";
 
   // Try to parse JSON; fall back to naive extraction
   try {
@@ -35,4 +31,13 @@ export async function inferIngredientsFromDish(dish: string): Promise<string[]> 
     return items.slice(0, 8);
   }
   return [];
+}
+
+function mockIngredientsForDish(dish: string): string[] {
+  const lc = dish.toLowerCase();
+  if (lc.includes("biryani")) return ["Rice", "Chicken", "Onion", "Yogurt", "Spices", "Oil"];
+  if (lc.includes("pizza")) return ["Flour", "Tomato", "Cheese", "Olive Oil", "Yeast"];
+  if (lc.includes("salad")) return ["Lettuce", "Tomato", "Cucumber", "Olive Oil"];
+  if (lc.includes("burger")) return ["Bun", "Beef", "Cheese", "Onion", "Tomato"];
+  return ["Rice", "Tomato", "Onion", "Oil", "Spices"]; // generic fallback
 }
