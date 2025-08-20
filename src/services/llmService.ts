@@ -19,7 +19,9 @@ export async function inferIngredientsFromDish(dish: string): Promise<string[]> 
 
   const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
   const resp = await model.generateContent(prompt);
-  const content = resp.response?.text() ?? "[]";
+  let content = resp.response?.text() ?? "[]";
+  // Guard: some models prepend markdown like ```json blocks
+  content = content.replace(/```json|```/g, "").trim();
 
   // Try to parse JSON; fall back to naive extraction
   try {

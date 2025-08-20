@@ -23,16 +23,42 @@ const BASE_MAP: Record<string, number> = {
   sugar: 0.6
 };
 
+const BLOCKLIST = new Set([
+  "",
+  "json",
+  "array",
+  "code",
+  "object",
+  "undefined",
+  "null",
+  "ingredients"
+]);
+
 function normalizeIngredientName(name: string) {
-  return name.toLowerCase().replace(/[^a-z\s]/g, "").trim();
+  return name.toLowerCase().replace(/[`\[\]{}:"'()*_#-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function canonicalizeIngredientName(name: string) {
+  const n = normalizeIngredientName(name);
+  if (BLOCKLIST.has(n)) return "";
+  return n;
+}
+
+function toTitleCase(s: string) {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function estimateCarbonForIngredients(names: string[]): Ingredient[] {
-  const ingredients: Ingredient[] = names.map((raw) => {
-    const n = normalizeIngredientName(raw);
-    const carbon = BASE_MAP[n] ?? averageFallback(n);
-    return { name: raw, carbon_kg: roundTo2(carbon) };
-  });
+  const seen = new Set<string>();
+  const ingredients: Ingredient[] = [];
+  for (const raw of names) {
+    const canonical = canonicalizeIngredientName(raw);
+    if (!canonical || BLOCKLIST.has(canonical)) continue;
+    if (seen.has(canonical)) continue;
+    seen.add(canonical);
+    const carbon = BASE_MAP[canonical] ?? averageFallback(canonical);
+    ingredients.push({ name: toTitleCase(canonical), carbon_kg: roundTo2(carbon) });
+  }
   return ingredients;
 }
 

@@ -32,7 +32,8 @@ export async function inferIngredientsFromImage(imageBuffer: Buffer): Promise<st
     } as any
   ]);
 
-  const content = resp.response?.text() ?? "[]";
+  let content = resp.response?.text() ?? "[]";
+  content = content.replace(/```json|```/g, "").trim();
 
   try {
     const parsed = JSON.parse(content);
