@@ -2,24 +2,31 @@
 
 TypeScript/Express backend that powers two endpoints for estimating a dish's carbon footprint using an LLM and a vision flow. Carbon values are mock/heuristic and do not require a database.
 
-## Quickstart
+## How to run (locally)
 
-Prereqs: Node 18+ (or Docker). Optionally set `GEMINI_API_KEY` to enable real LLM calls; without a key the service returns sensible mock ingredients so you can test end-to-end.
+Prereqs: Node 18+. Setting `GEMINI_API_KEY` is optional; without it the app uses deterministic mocks so you can test end‑to‑end.
 
-### Local (Node)
+1) Install deps
 ```bash
-npm ci
+npm install
+```
+
+2) Create a `.env` file (optional)
+```env
+GEMINI_API_KEY=YOUR_GEMINI_KEY
+PORT=8080
+```
+
+3) Start the server
+```bash
 npm run dev
-# Server on http://localhost:8080
+# Server runs at http://localhost:8080
 ```
 
-Set environment (optional):
+4) Health check
 ```bash
-$env:GEMINI_API_KEY="..."   # PowerShell on Windows
-export GEMINI_API_KEY="..."  # bash/zsh
+curl http://localhost:8080/
 ```
-
-<!-- Docker instructions intentionally removed for Postman testing focus. -->
 
 ## API
 
@@ -52,12 +59,34 @@ In Postman you can also use key `file`.
 
 Response mirrors `/estimate` and sets `source: "vision"`.
 
-## Design Notes
+Example curl:
+```bash
+curl -X POST http://localhost:8080/estimate/image \
+  -F "image=@C:/path/to/your/image.jpg;type=image/jpeg"
+```
+
+### Testing with Postman
+- Base URL: `http://localhost:8080`
+- Dish endpoint: POST `/estimate` with body as JSON `{ "dish": "Chicken Biryani" }` or x-www-form-urlencoded `dish=Chicken Biryani`
+- Image endpoint: POST `/estimate/image` with form-data key `image` (or `file`) and a JPG/PNG file
+- Common 400s: `dish string required` (missing/empty), `image file required` (no file uploaded)
+
+## Assumptions and limitations
+
+- Ingredients are inferred by an LLM; there is no authoritative dataset.
+- Carbon factors are heuristic and intentionally coarse; a small lookup map plus a generic fallback is used.
+- Quantities/portion sizes are not predicted; each ingredient contributes a typical average value.
+- Vision flow identifies likely ingredients, not precise detection; uploads limited to 5 MB and JPG/PNG.
+- If `GEMINI_API_KEY` is absent, services return deterministic mock ingredients for local testing.
+
+## Design decisions
 
 - Strong typing via `src/types` and clear layering: routes → controllers → services.
-- LLM/Vision use OpenAI SDK v4. If `OPENAI_API_KEY` is missing, both services return deterministic mocks to keep local dev frictionless.
+- LLM and Vision use Google's Gemini via `@google/generative-ai`. If `GEMINI_API_KEY` is missing, both services return deterministic mocks to keep local dev frictionless.
 - Carbon calculation uses a small lookup table with fallbacks; see `src/services/carbonEstimator.ts`.
 - Memory-backed uploads via Multer with size/type constraints.
+- Input normalization and filtering remove junk tokens (e.g., empty strings, "json").
+- Simple CORS enabled to ease manual testing tools.
 
 ## Production Considerations
 
@@ -66,3 +95,4 @@ Response mirrors `/estimate` and sets `source: "vision"`.
 - Security: input validation, rate limits, auth, secret management, dependency scanning.
 - Performance: caching popular dish ingredient lists, batching LLM calls, timeout/retry strategy.
 - API contract: publish OpenAPI/Swagger and add tests.
+ - Reliability: retries with backoff for AI calls, circuit breakers, and budget limits on external usage.
