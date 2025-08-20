@@ -6,7 +6,8 @@ import { EstimateResponse } from "../types";
 
 export async function estimateFromDish(req: Request, res: Response) {
   try {
-    const { dish } = req.body;
+    // Support both JSON and x-www-form-urlencoded; also allow "name" as alias for dish
+    const dish = (req.body?.dish ?? req.body?.name ?? "").toString();
     if (!dish || typeof dish !== "string") return res.status(400).json({ error: "dish string required" });
 
     const inferred = await inferIngredientsFromDish(dish); // string[]

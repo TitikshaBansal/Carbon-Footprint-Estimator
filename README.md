@@ -19,10 +19,7 @@ $env:GEMINI_API_KEY="..."   # PowerShell on Windows
 export GEMINI_API_KEY="..."  # bash/zsh
 ```
 
-### Docker
-```bash
-docker compose up --build
-```
+<!-- Docker instructions intentionally removed for Postman testing focus. -->
 
 ## API
 
@@ -51,6 +48,7 @@ Response (example):
 
 ### POST `/estimate/image`
 Accepts `multipart/form-data` with field name `image`.
+In Postman you can also use key `file`.
 
 Response mirrors `/estimate` and sets `source: "vision"`.
 
